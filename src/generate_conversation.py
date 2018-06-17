@@ -19,7 +19,7 @@ from vocabulary import Vocabulary
 logger=logging.getLogger(__name__)
 
 
-max_len=20
+max_len=40
 
 class Raw_Sent:
     
@@ -28,7 +28,7 @@ class Raw_Sent:
         
         
     def __len__(self):
-        return len(index2sent)
+        return len(self.index2sent)
 
 
     def add_sent(self,sentence,index):
@@ -155,30 +155,33 @@ class Conversation:
                 
             for index in range(0,len(item),2):
                 self.dial_pair.append(list((item[index],item[index+1])))
-                
 
     def encode_dialogue_pair(self):
-        #self.get_raw_sent(source_path)
-        
-        for train_item in self.train_dial_pair:
-            if len(train_item[0])>1 and len(train_item[0])<max_len and                 len(train_item[1])>1 and len(train_item[1])<max_len :
-                self.encoded_train_dial_pair.append([self.vocab.encode_sent(train_item[0]),self.vocab.encode_sent(train_item[1])])
-                
-        for valid_item in self.valid_dial_pair:
-            if len(valid_item[0])>1 and len(valid_item[0])<max_len and                 len(valid_item[1])>1 and len(valid_item[1])<max_len :
-                self.encoded_valid_dial_pair.append([self.vocab.encode_sent(valid_item[0]),self.vocab.encode_sent(valid_item[1])])
-                
-                
-        for test_item in self.test_dial_pair:
-            if len(test_item[0])>1 and len(test_item[0])<max_len and                 len(test_item[1])>1 and len(test_item[1])<max_len :
-                self.encoded_test_dial_pair.append([self.vocab.encode_sent(test_item[0]),self.vocab.encode_sent(test_item[1])])
+        # self.get_raw_sent(source_path)
 
+        for train_item in self.train_dial_pair:
+            encode_sent = [self.vocab.encode_sent(train_item[0]), self.vocab.encode_sent(train_item[1])]
+            if len(encode_sent[0]) > 1 and len(encode_sent[0]) < max_len and len(encode_sent[1]) > 1 and len(
+                    encode_sent[1]) < max_len:
+                self.encoded_train_dial_pair.append(encode_sent)
+
+        for valid_item in self.valid_dial_pair:
+            encode_sent = [self.vocab.encode_sent(valid_item[0]), self.vocab.encode_sent(valid_item[1])]
+            if len(encode_sent[0]) > 1 and len(encode_sent[0]) < max_len and len(encode_sent[1]) > 1 and len(
+                    encode_sent[1]) < max_len:
+                self.encoded_valid_dial_pair.append(encode_sent)
+
+        for test_item in self.test_dial_pair:
+            encode_sent = [self.vocab.encode_sent(test_item[0]), self.vocab.encode_sent(test_item[1])]
+            if len(encode_sent[0]) > 1 and len(encode_sent[0]) < max_len and len(encode_sent[1]) > 1 and len(
+                    encode_sent[1]) < max_len:
+                self.encoded_test_dial_pair.append(encode_sent)
 
     def save_dialogue_pair(self,exp_data_dir):
         dial_pair_path=os.path.join(exp_data_dir,'dialogue_pair.json')
         train_dial_pair_path=os.path.join(exp_data_dir,'train_dialogue_pair.json')
         valid_dial_pair_path=os.path.join(exp_data_dir,'valid_dialogue_pair.json')
-        test_dial_pair_path=os.path.join(exp_data_dir,'test_dialogue_pair')
+        test_dial_pair_path=os.path.join(exp_data_dir,'test_dialogue_pair.json')
         
         encoded_train_dial_pair_path=os.path.join(exp_data_dir,'encoded_train_dialogue_pair.json')
         encoded_valid_dial_pair_path=os.path.join(exp_data_dir,'encoded_valid_dialogue_pair.json')
@@ -206,8 +209,22 @@ class Conversation:
 
         with open(encoded_test_dial_pair_path,'w') as f:
             json.dump(self.encoded_test_dial_pair,f)
-            
-            
+
+    def load_dialogue_pair(self, exp_data_dir):
+        train_dial_pair_path = os.path.join(exp_data_dir, 'train_dialogue_pair.json')
+        valid_dial_pair_path = os.path.join(exp_data_dir, 'valid_dialogue_pair.json')
+        test_dial_pair_path = os.path.join(exp_data_dir, 'test_dialogue_pair.json')
+
+        with open(train_dial_pair_path, 'r') as f:
+            self.train_dial_pair=json.load( f)
+
+        with open(valid_dial_pair_path, 'r') as f:
+            self.valid_dial_pair=json.load( f)
+
+        with open(test_dial_pair_path, 'r') as f:
+            self.test_dial_pair=json.load(f)
+
+
     def create_conversation(self,raw_data_dir,exp_data_dir):
         threshold=5
         
@@ -222,12 +239,18 @@ class Conversation:
         self.encode_dialogue_pair()
         self.save_dialogue_pair(exp_data_dir)
         
-        
+    def re_encode_dialogue_pair(self,exp_data_dir):
+        vocab_path=os.path.join(exp_data_dir,'vocabulary.json')
+        self.vocab.load_vocab(vocab_path)
+        self.load_dialogue_pair(exp_data_dir)
+        self.encode_dialogue_pair()
+        self.save_dialogue_pair(exp_data_dir)
 
 
 # In[2]:
 
 if __name__=='__main__':
     conv=Conversation()
-    conv.create_conversation('../raw_data','../experiment_data')
+#    conv.create_conversation('../raw_data','../experiment_data/data')
+    conv.re_encode_dialogue_pair('../experiment_data/data')
 

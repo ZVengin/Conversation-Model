@@ -58,7 +58,7 @@ def get_dataloader(data_path,vocab_path,batch_size):
 
 if __name__=='__main__':
     data_dir = '../experiment_data/data'
-    data_path = os.path.join(data_dir, 'train_auto.json')
+    data_path = os.path.join(data_dir, 'encoded_valid_dialogue_pair.json')
     vocab_path = os.path.join(data_dir, 'vocabulary.json')
     dataloader = get_dataloader(data_path, vocab_path, 5)
     for idx,batch in enumerate(dataloader):

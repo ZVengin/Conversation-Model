@@ -1,28 +1,17 @@
-# coding: utf-8
-
-# In[7]:
-
-
-# coding: utf-8
-
-# In[7]:
-
-
 import torch
-import random
 import logging
+import random
 
 import torch.nn as nn
-import torch.nn.utils.rnn as rnn_utils
 
 from torch.autograd import Variable
 
+logging.basicConfig(level=logging.DEBUG,format='%(message)s')
+logger=logging.getLogger(__name__)
 
-class Seq2Seq(nn.Module):
-
-    def __init__(self, args):
-        # args is a dictionary which stores all paramteres setting RNN Encoder
-        super(Seq2Seq, self).__init__()
+class Encoder(nn.Module):
+    def __init__(self,args):
+        super(Encoder, self).__init__()
         self.hidd_dime = args['hidd_dime']
         self.word_dime = args['word_dime']
         self.hidd_laye = args['hidd_layer']
@@ -43,21 +32,14 @@ class Seq2Seq(nn.Module):
             self.rnn_type = 1
 
         else:
-            logger.error(args['RNN_type']+' illegle RNN type')
+            logger.error(args['RNN_type'] + ' illegle RNN type')
             return
 
         self.hidd_fact = self.hidd_laye * (2 if args['bidirectional'] else 1)
-
         self.embd_matrix = nn.Embedding(self.voca_size, self.word_dime)
-
         self.enco_rnn = rnn(self.word_dime, self.hidd_dime, self.hidd_laye, bidirectional=args['bidirectional'])
 
-        self.embd_matrix2=nn.Embedding(self.voca_size, self.word_dime)
 
-        self.deco_rnn = rnn(self.word_dime, self.hidd_dime, self.hidd_laye, bidirectional=args['bidirectional'])
-        self.hidd_to_voca = nn.Linear(self.hidd_dime * int(self.hidd_fact / self.hidd_laye), self.voca_size)
-
-        self.log_func = nn.LogSoftmax()
 
     def encoder_forward(self, sour_seq, seq_len):
         # sour_seq is a variable storing a batch of sequence
@@ -80,24 +62,24 @@ class Seq2Seq(nn.Module):
                 hidd_state = hidd_state.cuda()
 
         embd_seq = self.embd_matrix(sour_seq)
-        pack_seq = rnn_utils.pack_padded_sequence(self.drop_out(embd_seq), seq_len)
+        pack_seq = torch.nn.utils.rnn.pack_padded_sequence(self.drop_out(embd_seq), seq_len)
         out, hidd_state = self.enco_rnn(pack_seq, hidd_state)
 
         return hidd_state
 
-    def encoder_forward_by_sentence(self, seq_list,seq_len):
+    def encoder_forward_by_sentence(self, seq_list, seq_len):
 
         init_range = 0.01
-        hidd_state_list=[]
+        hidd_state_list = []
 
-        tranf_seq_list=seq_list.transpose(0,1)
-        batch_size=tranf_seq_list.size(0)
+        tranf_seq_list = seq_list.transpose(0, 1)
+        batch_size = tranf_seq_list.size(0)
 
         for idx in range(batch_size):
-            sent_seq=Variable(tranf_seq_list[idx]).view(-1,1)
+            sent_seq = Variable(tranf_seq_list[idx]).view(-1, 1)
 
-            sent_hidd_state=Variable(torch.zeros(self.hidd_fact,1,self.hidd_dime))
-            sent_hidd_state=torch.nn.init.uniform(sent_hidd_state,-init_range,init_range)
+            sent_hidd_state = Variable(torch.zeros(self.hidd_fact, 1, self.hidd_dime))
+            sent_hidd_state = torch.nn.init.uniform(sent_hidd_state, -init_range, init_range)
 
             if self.rnn_type == 1:
                 sent_cell_state = Variable(torch.zeros(sent_hidd_state.shape))
@@ -111,19 +93,48 @@ class Seq2Seq(nn.Module):
                     sent_hidd_state = sent_hidd_state.cuda()
 
             embd_seq = self.embd_matrix(sent_seq)
-            pack_seq = rnn_utils.pack_padded_sequence(self.drop_out(embd_seq), [seq_len[idx]])
+            pack_seq = torch.nn.utils.rnn.pack_padded_sequence(self.drop_out(embd_seq), [seq_len[idx]])
             out, sent_hidd_state = self.enco_rnn(pack_seq, sent_hidd_state)
             hidd_state_list.append(sent_hidd_state)
 
-        hidd_state=torch.stack(hidd_state_list)
+        hidd_state = torch.stack(hidd_state_list)
 
         return hidd_state
 
 
+class Decoder(nn.Module):
+    def __init__(self,args):
+        super(Decoder, self).__init__()
+        self.hidd_dime = args['hidd_dime']
+        self.word_dime = args['word_dime']
+        self.hidd_laye = args['hidd_layer']
+        self.voca_size = args['voca_size']
+
+        self.sos_idx = 0
+        self.eos_idx = 1
+        self.pad_idx = 2
+
+        if args['RNN_type'] == 'GRU':
+            rnn = nn.GRU
+            self.rnn_type = 0
+
+        elif args['RNN_type'] == 'LSTM':
+            rnn = nn.LSTM
+            self.rnn_type = 1
+
+        else:
+            logger.error(args['RNN_type'] + ' illegle RNN type')
+            return
+
+        self.hidd_fact = self.hidd_laye * (2 if args['bidirectional'] else 1)
+        self.embd_matrix = nn.Embedding(self.voca_size, self.word_dime)
+        self.deco_rnn = rnn(self.word_dime, self.hidd_dime, self.hidd_laye, bidirectional=args['bidirectional'])
+        self.hidd_to_voca = nn.Linear(self.hidd_dime * int(self.hidd_fact / self.hidd_laye), self.voca_size)
+        self.log_func = nn.LogSoftmax()
 
 
     def decoder_forward_step(self, word_list, hidd_state):
-        embd_word = self.embd_matrix2(word_list)  # embd_word: 1xBatchx Word_dim
+        embd_word = self.embd_matrix(word_list)  # embd_word: 1xBatchx Word_dim
         out, hidd_state = self.deco_rnn(embd_word, hidd_state)
         out = self.hidd_to_voca(out.squeeze(0))  # out: Batch x Vocab
         out = self.log_func(out)
@@ -250,9 +261,11 @@ class Seq2Seq(nn.Module):
         return generated_sents
 
 
-logging.basicConfig(format='%(asctime)-15s %(message)s', level='DEBUG')
-logger = logging.getLogger(__name__)
+class Seq2Seq(nn.Module):
 
-# In[8]:
-
-
+    def __init__(self, args):
+        super(Seq2Seq, self).__init__()
+        self.encoder = Encoder(args)
+        self.decoder = Decoder(args)
+    def forward(self):
+        pass

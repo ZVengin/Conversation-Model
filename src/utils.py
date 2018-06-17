@@ -55,25 +55,27 @@ def process_sent_list(vocab,sour_seq,targ_seq,sent_list):
 def train_batch(model,optimizer,criterion,batch):
 
     sour,sour_len,targ,targ_len=batch
-    hidd_state=model.encoder_forward(sour,sour_len)
-    out_prob=model.decoder_forward(targ,targ_len,hidd_state,1)
-    out_prob=out_prob.view(-1,out_prob.size(2))
+    hidd_state=model.encoder.encoder_forward(sour,sour_len)
+    out_prob=model.decoder.decoder_forward(targ,targ_len,hidd_state,1)
+    out_prob=out_prob.view(out_prob.size(0)*out_prob.size(1),-1)
     targ=targ.view(-1)
-    optimizer.zero_grad()
     loss=criterion(out_prob,targ)
+    optimizer.zero_grad()
     loss.backward()
     torch.nn.utils.clip_grad_norm(model.parameters(),5)
     optimizer.step()
-
     return loss.item()
 
 def validate_batch(model,criterion,batch):
     sour,sour_len,targ,targ_len=batch
-    hidd_state=model.encoder_forward(sour,sour_len)
-    out_prob=model.decoder_forward(targ,targ_len,hidd_state,0)
-    out_prob=out_prob.view(-1,out_prob.size(2))
+    hidd_state=model.encoder.encoder_forward(sour,sour_len)
+    out_prob=model.decoder.decoder_forward(targ,targ_len,hidd_state,1)
+    out_prob=out_prob.view(out_prob.size(0)*out_prob.size(1),-1)
+#    print(out_prob)
+#    print(targ)
     targ=targ.view(-1)
     loss = criterion(out_prob, targ)
+    print(loss.item())
 
     return loss.item()
 
@@ -158,8 +160,8 @@ def test(args):
         if torch.cuda.is_available():
             sour=sour.cuda()
             targ=targ.cuda()
-        enco_hidd_state=model.encoder_forward(sour,sour_len)
-        out_prob = model.decoder_forward(targ,targ_len,enco_hidd_state,0)
+        enco_hidd_state=model.encoder.encoder_forward(sour,sour_len)
+        out_prob = model.decoder.decoder_forward(targ,targ_len,enco_hidd_state,0)
         sent_list = [(out_prob.topk(1)[1].view(-1).tolist(), 0)]
         test_sent_pair_list+=process_sent_list(vocab,sour,targ,sent_list)
 #   logger.info('batch_idx:{} \nsent:{}'.format(batch_idx,test_sent_pair_list))

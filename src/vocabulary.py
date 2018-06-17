@@ -68,8 +68,7 @@ class Vocabulary:
                 if item[1]<threshold: return
 
 
-    def save_vocab(self,data_dir):
-        vocab_file= os.path.join(data_dir,'vocabulary.json')
+    def save_vocab(self,vocab_file):
         with open(vocab_file,'w') as f:
             json.dump({
                 'word2idx':self.word2idx,
@@ -135,8 +134,9 @@ class Vocabulary:
 # In[ ]:
 
 
-#
-#data_dir='/home/zvengin/research/Variational-Auto-encoder/raw_data'
-#vocab=Vocabulary()
-#vocab.save_vocab(data_dir)
+if __name__=='__main__':
+    data_dir='../experiment_data/data'
+    vocab=Vocabulary()
+    vocab.build_vocab(5,data_set=None,path=os.path.join(data_dir,'train_dialogue_pair.json'))
+    vocab.save_vocab(os.path.join(data_dir,'vocabulary.json'))
 
