@@ -227,7 +227,7 @@ class Conversation:
 
 # In[2]:
 
-
-conv=Conversation()
-conv.create_conversation('../raw_data','../experiment_data')
+if __name__=='__main__':
+    conv=Conversation()
+    conv.create_conversation('../raw_data','../experiment_data')
 
